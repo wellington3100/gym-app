@@ -1,23 +1,7 @@
 import tkinter as tk
-from tkinter import messagebox, simpledialog
+from tkinter import messagebox, simpledialog, ttk
 import sys
-
-# Al inicio de tu archivo, después de los otros imports
 from gym_mysql_database import GymMySQLDatabase
-
-# Crear la conexión a la base de datos
-db = GymMySQLDatabase(
-    host='localhost',
-    username='root',      # Usuario de tu MySQL (generalmente 'root' en XAMPP)
-    password=''          # Contraseña (vacía por defecto en XAMPP)
-)
-
-# Crear la conexión a la base de datos
-db = GymMySQLDatabase(
-    host='localhost',
-    username='root',      # Usuario de tu MySQL (generalmente 'root' en XAMPP)
-    password=''          # Contraseña (vacía por defecto en XAMPP)
-)
 
 class GymApp:
     def __init__(self):
@@ -30,11 +14,22 @@ class GymApp:
         # Centrar la ventana
         self.center_window()
         
-        # Usuarios temporales para pruebas (simula base de datos)
-        self.users_db = {
-            "admin": {"password": "123", "full_name": "Administrador"},
-            "user1": {"password": "password", "full_name": "Usuario Demo"}
-        }
+        # Inicializar base de datos
+        try:
+            self.db = GymMySQLDatabase(
+                host='localhost',
+                username='root',
+                password='',
+                database='gymapp'
+            )
+            print("Conexión a base de datos establecida")
+        except Exception as e:
+            messagebox.showerror("Error de Base de Datos", 
+                               f"No se pudo conectar a la base de datos:\n{str(e)}")
+            sys.exit()
+        
+        # Usuario actual
+        self.current_user = None
         
         # Mostrar pantalla de login
         self.show_login_screen()
@@ -106,7 +101,21 @@ class GymApp:
         )
         create_btn.pack(pady=10)
         
-        # Botón 3: Cerrar Programa
+        # Botón 3: Ver Máquinas
+        machines_btn = tk.Button(
+            button_frame,
+            text="Ver Máquinas",
+            font=("Arial", 14, "bold"),
+            bg="#F9F72E",
+            fg="black",
+            width=20,
+            height=2,
+            command=self.show_machines_screen,
+            cursor="hand2"
+        )
+        machines_btn.pack(pady=10)
+        
+        # Botón 4: Cerrar Programa
         exit_btn = tk.Button(
             button_frame,
             text="Cerrar Programa",
@@ -119,16 +128,6 @@ class GymApp:
             cursor="hand2"
         )
         exit_btn.pack(pady=10)
-        
-        # Información de usuarios demo
-        info_label = tk.Label(
-            self.root, 
-            text="Usuario demo: admin | Contraseña: 123", 
-            font=("Arial", 10),
-            fg="#95a5a6",
-            bg='#A4278D'
-        )
-        info_label.pack(side=tk.BOTTOM, pady=20)
     
     def login_user(self):
         # Crear ventana de login
@@ -152,21 +151,21 @@ class GymApp:
         )
         title.pack(pady=20)
         
-        # Campo ID Usuario
+        # Campo Usuario
         tk.Label(
             login_window,
-            text="ID Usuario:",
+            text="Usuario:",
             font=("Arial", 12),
             fg="white",
             bg='#A4278D'
         ).pack(pady=5)
         
-        id_entry = tk.Entry(
+        username_entry = tk.Entry(
             login_window,
             font=("Arial", 12),
             width=25
         )
-        id_entry.pack(pady=5)
+        username_entry.pack(pady=5)
         
         # Campo Contraseña
         tk.Label(
@@ -187,20 +186,23 @@ class GymApp:
         
         # Función para verificar login
         def verify_login():
-            user_id = id_entry.get().strip()
+            username = username_entry.get().strip()
             password = password_entry.get().strip()
             
-            if not user_id or not password:
+            if not username or not password:
                 messagebox.showerror("Error", "Por favor complete todos los campos")
                 return
             
-            # Verificar credenciales (simulación de base de datos)
-            if user_id in self.users_db and self.users_db[user_id]["password"] == password:
-                messagebox.showinfo("Éxito", f"Bienvenido, {self.users_db[user_id]['full_name']}!")
+            # Verificar credenciales en la base de datos
+            success, result = self.db.verify_user(username, password)
+            
+            if success:
+                self.current_user = result
+                messagebox.showinfo("Éxito", f"¡Bienvenido, {result['nombre_completo']}!")
                 login_window.destroy()
-                self.show_main_screen(user_id)
+                self.show_main_screen()
             else:
-                messagebox.showerror("Error", "Contraseña o usuario incorrecta")
+                messagebox.showerror("Error", result)
         
         # Botón de login
         login_btn = tk.Button(
@@ -215,7 +217,7 @@ class GymApp:
         login_btn.pack(pady=20)
         
         # Enfocar en el campo de usuario
-        id_entry.focus()
+        username_entry.focus()
         
         # Permitir login con Enter
         login_window.bind('<Return>', lambda event: verify_login())
@@ -301,21 +303,18 @@ class GymApp:
                 messagebox.showerror("Error", "Por favor complete todos los campos")
                 return
             
-            if username in self.users_db:
-                messagebox.showerror("Error", "El nombre de usuario ya existe")
+            if len(password) < 4:
+                messagebox.showerror("Error", "La contraseña debe tener al menos 4 caracteres")
                 return
             
-            # Agregar usuario a la "base de datos" temporal
-            self.users_db[username] = {
-                "password": password,
-                "full_name": full_name
-            }
+            # Crear usuario en la base de datos
+            success, message = self.db.create_user(full_name, username, password)
             
-            # TODO: Implementar conexión con base de datos MySQL en XAMPP
-            # save_user_to_database(full_name, username, password)
-            
-            messagebox.showinfo("Éxito", "Usuario creado exitosamente")
-            register_window.destroy()
+            if success:
+                messagebox.showinfo("Éxito", message)
+                register_window.destroy()
+            else:
+                messagebox.showerror("Error", message)
         
         # Botón de registro
         register_btn = tk.Button(
@@ -332,7 +331,7 @@ class GymApp:
         # Enfocar en el primer campo
         fullname_entry.focus()
     
-    def show_main_screen(self, user_id):
+    def show_main_screen(self):
         self.clear_screen()
         
         # Título
@@ -343,31 +342,53 @@ class GymApp:
             fg="white",
             bg='#A4278D'
         )
-        title_label.pack(pady=40)
+        title_label.pack(pady=30)
         
         # Mensaje de bienvenida
         welcome_label = tk.Label(
             self.root, 
-            text=f"Bienvenido, {self.users_db[user_id]['full_name']}", 
+            text=f"Bienvenido, {self.current_user['nombre_completo']}", 
             font=("Arial", 14),
             fg="#bdc3c7",
             bg='#A4278D'
         )
         welcome_label.pack(pady=20)
         
-        # Placeholder para contenido futuro
-        content_label = tk.Label(
-            self.root, 
-            text="Esta pantalla está vacía por el momento.\nAquí irán las funcionalidades del gimnasio.", 
-            font=("Arial", 12),
-            fg="#95a5a6",
-            bg='#A4278D',
-            justify=tk.CENTER
-        )
-        content_label.pack(pady=50)
+        # Frame para botones de funcionalidades
+        functions_frame = tk.Frame(self.root, bg='#A4278D')
+        functions_frame.pack(pady=30)
         
-        # Botón para regresar al login
-        back_btn = tk.Button(
+        # Botón Ver Máquinas
+        machines_btn = tk.Button(
+            functions_frame,
+            text="Gestionar Máquinas",
+            font=("Arial", 12, "bold"),
+            bg="#F9F72E",
+            fg="black",
+            width=18,
+            height=2,
+            command=self.show_machines_screen,
+            cursor="hand2"
+        )
+        machines_btn.pack(pady=10)
+        
+        # Botón Ver Usuarios (solo si es admin)
+        if self.current_user['username'] == 'admin':
+            users_btn = tk.Button(
+                functions_frame,
+                text="Ver Usuarios",
+                font=("Arial", 12, "bold"),
+                bg="#F9F72E",
+                fg="black",
+                width=18,
+                height=2,
+                command=self.show_users_screen,
+                cursor="hand2"
+            )
+            users_btn.pack(pady=10)
+        
+        # Botón para cerrar sesión
+        logout_btn = tk.Button(
             self.root,
             text="Cerrar Sesión",
             font=("Arial", 12, "bold"),
@@ -375,97 +396,197 @@ class GymApp:
             fg="white",
             width=15,
             height=2,
-            command=self.show_login_screen,
+            command=self.logout,
             cursor="hand2"
         )
-        back_btn.pack(pady=20)
+        logout_btn.pack(side=tk.BOTTOM, pady=20)
+    
+    def show_machines_screen(self):
+        # Crear ventana de máquinas
+        machines_window = tk.Toplevel(self.root)
+        machines_window.title("Gestión de Máquinas")
+        machines_window.geometry("800x500")
+        machines_window.configure(bg='#A4278D')
+        
+        # Título
+        title = tk.Label(
+            machines_window,
+            text="Gestión de Máquinas",
+            font=("Arial", 18, "bold"),
+            fg="white",
+            bg='#A4278D'
+        )
+        title.pack(pady=20)
+        
+        # Frame para la tabla
+        table_frame = tk.Frame(machines_window, bg='white')
+        table_frame.pack(pady=10, padx=20, fill=tk.BOTH, expand=True)
+        
+        # Crear Treeview para mostrar máquinas
+        columns = ('ID', 'Nombre', 'Tipo', 'Estado', 'Descripción')
+        tree = ttk.Treeview(table_frame, columns=columns, show='headings')
+        
+        # Definir encabezados
+        for col in columns:
+            tree.heading(col, text=col)
+            tree.column(col, width=150)
+        
+        # Cargar datos de máquinas
+        machines = self.db.get_machines()
+        for machine in machines:
+            tree.insert('', tk.END, values=machine)
+        
+        tree.pack(fill=tk.BOTH, expand=True)
+        
+        # Frame para botones
+        button_frame = tk.Frame(machines_window, bg='#A4278D')
+        button_frame.pack(pady=20)
+        
+        # Botón Agregar Máquina
+        def add_machine():
+            self.add_machine_dialog()
+            # Actualizar la tabla
+            for item in tree.get_children():
+                tree.delete(item)
+            machines = self.db.get_machines()
+            for machine in machines:
+                tree.insert('', tk.END, values=machine)
+        
+        add_btn = tk.Button(
+            button_frame,
+            text="Agregar Máquina",
+            font=("Arial", 10, "bold"),
+            bg="#F9F72E",
+            fg="black",
+            command=add_machine,
+            cursor="hand2"
+        )
+        add_btn.pack(side=tk.LEFT, padx=10)
+        
+        # Botón Cerrar
+        close_btn = tk.Button(
+            button_frame,
+            text="Cerrar",
+            font=("Arial", 10, "bold"),
+            bg="#A4278D",
+            fg="white",
+            command=machines_window.destroy,
+            cursor="hand2"
+        )
+        close_btn.pack(side=tk.LEFT, padx=10)
+    
+    def add_machine_dialog(self):
+        # Diálogo para agregar máquina
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Agregar Máquina")
+        dialog.geometry("400x300")
+        dialog.configure(bg='#A4278D')
+        dialog.transient(self.root)
+        dialog.grab_set()
+        
+        # Campos
+        tk.Label(dialog, text="Nombre:", fg="white", bg='#A4278D', font=("Arial", 12)).pack(pady=5)
+        name_entry = tk.Entry(dialog, font=("Arial", 12), width=30)
+        name_entry.pack(pady=5)
+        
+        tk.Label(dialog, text="Tipo:", fg="white", bg='#A4278D', font=("Arial", 12)).pack(pady=5)
+        type_entry = tk.Entry(dialog, font=("Arial", 12), width=30)
+        type_entry.pack(pady=5)
+        
+        tk.Label(dialog, text="Descripción:", fg="white", bg='#A4278D', font=("Arial", 12)).pack(pady=5)
+        desc_text = tk.Text(dialog, font=("Arial", 10), width=35, height=4)
+        desc_text.pack(pady=5)
+        
+        def save_machine():
+            name = name_entry.get().strip()
+            machine_type = type_entry.get().strip()
+            description = desc_text.get("1.0", tk.END).strip()
+            
+            if name and machine_type:
+                success, message = self.db.add_machine(name, machine_type, description)
+                if success:
+                    messagebox.showinfo("Éxito", message)
+                    dialog.destroy()
+                else:
+                    messagebox.showerror("Error", message)
+            else:
+                messagebox.showerror("Error", "Complete los campos obligatorios")
+        
+        tk.Button(
+            dialog,
+            text="Guardar",
+            font=("Arial", 12, "bold"),
+            bg="#F9F72E",
+            fg="black",
+            command=save_machine,
+            cursor="hand2"
+        ).pack(pady=20)
+    
+    def show_users_screen(self):
+        # Crear ventana de usuarios
+        users_window = tk.Toplevel(self.root)
+        users_window.title("Lista de Usuarios")
+        users_window.geometry("600x400")
+        users_window.configure(bg='#A4278D')
+        
+        # Título
+        title = tk.Label(
+            users_window,
+            text="Usuarios Registrados",
+            font=("Arial", 18, "bold"),
+            fg="white",
+            bg='#A4278D'
+        )
+        title.pack(pady=20)
+        
+        # Frame para la tabla
+        table_frame = tk.Frame(users_window, bg='white')
+        table_frame.pack(pady=10, padx=20, fill=tk.BOTH, expand=True)
+        
+        # Crear Treeview
+        columns = ('ID', 'Nombre Completo', 'Usuario', 'Fecha Registro')
+        tree = ttk.Treeview(table_frame, columns=columns, show='headings')
+        
+        for col in columns:
+            tree.heading(col, text=col)
+            tree.column(col, width=140)
+        
+        # Cargar usuarios
+        users = self.db.get_all_users()
+        for user in users:
+            tree.insert('', tk.END, values=user)
+        
+        tree.pack(fill=tk.BOTH, expand=True)
+        
+        # Botón cerrar
+        tk.Button(
+            users_window,
+            text="Cerrar",
+            font=("Arial", 12, "bold"),
+            bg="#A4278D",
+            fg="white",
+            command=users_window.destroy,
+            cursor="hand2"
+        ).pack(pady=20)
+    
+    def logout(self):
+        self.current_user = None
+        self.show_login_screen()
     
     def close_program(self):
         result = messagebox.askyesno("Confirmar", "¿Estás seguro de que quieres cerrar el programa?")
         if result:
+            # Cerrar conexión a base de datos
+            if hasattr(self, 'db'):
+                self.db.close_connection()
+            
             messagebox.showinfo("Despedida", "Esperamos volver a verte pronto")
             self.root.quit()
             sys.exit()
     
     def run(self):
+        self.root.protocol("WM_DELETE_WINDOW", self.close_program)
         self.root.mainloop()
-
-# Función comentada para futura implementación con XAMPP/MySQL
-"""
-def save_user_to_database(full_name, username, password):
-    # Conexión a MySQL (XAMPP)
-    import mysql.connector
-    
-    try:
-        connection = mysql.connector.connect(
-            host='localhost',
-            database='Planet Fitness',
-            user='root',
-            password=''  # Contraseña por defecto de XAMPP
-        )
-        
-        cursor = connection.cursor()
-        
-        # Insertar nuevo usuario
-        insert_query = '''
-        INSERT INTO users (full_name, username, password, created_at) 
-        VALUES (%s, %s, %s, NOW())
-        '''
-        
-        cursor.execute(insert_query, (full_name, username, password))
-        connection.commit()
-        
-        cursor.close()
-        connection.close()
-        
-        return True
-        
-    except mysql.connector.Error as error:
-        print(f"Error al conectar con MySQL: {error}")
-        return False
-
-def verify_user_credentials(username, password):
-    # Verificar credenciales en MySQL
-    import mysql.connector
-    
-    try:
-        connection = mysql.connector.connect(
-            host='localhost',
-            database='Planet Fitness',
-            user='root',
-            password=''
-        )
-        
-        cursor = connection.cursor()
-        
-        query = "SELECT full_name FROM users WHERE username = %s AND password = %s"
-        cursor.execute(query, (username, password))
-        
-        result = cursor.fetchone()
-        
-        cursor.close()
-        connection.close()
-        
-        return result[0] if result else None
-        
-    except mysql.connector.Error as error:
-        print(f"Error al verificar credenciales: {error}")
-        return None
-
-# SQL para crear la tabla de usuarios en MySQL:
-'''
-CREATE DATABASE gym_app;
-USE gym_app;
-
-CREATE TABLE users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    full_name VARCHAR(255) NOT NULL,
-    username VARCHAR(50) UNIQUE NOT NULL,
-    password VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-'''
-"""
 
 if __name__ == "__main__":
     app = GymApp()
