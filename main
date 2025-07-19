@@ -1,0 +1,472 @@
+import tkinter as tk
+from tkinter import messagebox, simpledialog
+import sys
+
+# Al inicio de tu archivo, después de los otros imports
+from gym_mysql_database import GymMySQLDatabase
+
+# Crear la conexión a la base de datos
+db = GymMySQLDatabase(
+    host='localhost',
+    username='root',      # Usuario de tu MySQL (generalmente 'root' en XAMPP)
+    password=''          # Contraseña (vacía por defecto en XAMPP)
+)
+
+# Crear la conexión a la base de datos
+db = GymMySQLDatabase(
+    host='localhost',
+    username='root',      # Usuario de tu MySQL (generalmente 'root' en XAMPP)
+    password=''          # Contraseña (vacía por defecto en XAMPP)
+)
+
+class GymApp:
+    def __init__(self):
+        self.root = tk.Tk()
+        self.root.title("Planet Fitness")
+        self.root.geometry("400x500")
+        self.root.configure(bg='#A4278D')
+        self.root.resizable(False, False)
+        
+        # Centrar la ventana
+        self.center_window()
+        
+        # Usuarios temporales para pruebas (simula base de datos)
+        self.users_db = {
+            "admin": {"password": "123", "full_name": "Administrador"},
+            "user1": {"password": "password", "full_name": "Usuario Demo"}
+        }
+        
+        # Mostrar pantalla de login
+        self.show_login_screen()
+    
+    def center_window(self):
+        self.root.update_idletasks()
+        width = self.root.winfo_width()
+        height = self.root.winfo_height()
+        x = (self.root.winfo_screenwidth() // 2) - (width // 2)
+        y = (self.root.winfo_screenheight() // 2) - (height // 2)
+        self.root.geometry(f'{width}x{height}+{x}+{y}')
+    
+    def clear_screen(self):
+        for widget in self.root.winfo_children():
+            widget.destroy()
+    
+    def show_login_screen(self):
+        self.clear_screen()
+        
+        # Título
+        title_label = tk.Label(
+            self.root, 
+            text="Planet Fitness", 
+            font=("Arial", 24, "bold"),
+            fg="white",
+            bg='#A4278D'
+        )
+        title_label.pack(pady=40)
+        
+        # Subtítulo
+        subtitle_label = tk.Label(
+            self.root, 
+            text="Sistema de Gestión de Gimnasio", 
+            font=("Arial", 12),
+            fg="#bdc3c7",
+            bg='#A4278D'
+        )
+        subtitle_label.pack(pady=10)
+        
+        # Frame para los botones
+        button_frame = tk.Frame(self.root, bg='#A4278D')
+        button_frame.pack(pady=50)
+        
+        # Botón 1: Iniciar Usuario
+        login_btn = tk.Button(
+            button_frame,
+            text="Iniciar Usuario",
+            font=("Arial", 14, "bold"),
+            bg="#F9F72E",
+            fg="black",
+            width=20,
+            height=2,
+            command=self.login_user,
+            cursor="hand2"
+        )
+        login_btn.pack(pady=10)
+        
+        # Botón 2: Crear Usuario
+        create_btn = tk.Button(
+            button_frame,
+            text="Crear Usuario",
+            font=("Arial", 14, "bold"),
+            bg="#F9F72E",
+            fg="black",
+            width=20,
+            height=2,
+            command=self.create_user,
+            cursor="hand2"
+        )
+        create_btn.pack(pady=10)
+        
+        # Botón 3: Cerrar Programa
+        exit_btn = tk.Button(
+            button_frame,
+            text="Cerrar Programa",
+            font=("Arial", 14, "bold"),
+            bg="#F9F72E",
+            fg="black",
+            width=20,
+            height=2,
+            command=self.close_program,
+            cursor="hand2"
+        )
+        exit_btn.pack(pady=10)
+        
+        # Información de usuarios demo
+        info_label = tk.Label(
+            self.root, 
+            text="Usuario demo: admin | Contraseña: 123", 
+            font=("Arial", 10),
+            fg="#95a5a6",
+            bg='#A4278D'
+        )
+        info_label.pack(side=tk.BOTTOM, pady=20)
+    
+    def login_user(self):
+        # Crear ventana de login
+        login_window = tk.Toplevel(self.root)
+        login_window.title("Iniciar Sesión")
+        login_window.geometry("350x250")
+        login_window.configure(bg='#A4278D')
+        login_window.resizable(False, False)
+        
+        # Centrar ventana de login
+        login_window.transient(self.root)
+        login_window.grab_set()
+        
+        # Título
+        title = tk.Label(
+            login_window,
+            text="Iniciar Sesión",
+            font=("Arial", 16, "bold"),
+            fg="white",
+            bg='#A4278D'
+        )
+        title.pack(pady=20)
+        
+        # Campo ID Usuario
+        tk.Label(
+            login_window,
+            text="ID Usuario:",
+            font=("Arial", 12),
+            fg="white",
+            bg='#A4278D'
+        ).pack(pady=5)
+        
+        id_entry = tk.Entry(
+            login_window,
+            font=("Arial", 12),
+            width=25
+        )
+        id_entry.pack(pady=5)
+        
+        # Campo Contraseña
+        tk.Label(
+            login_window,
+            text="Contraseña:",
+            font=("Arial", 12),
+            fg="white",
+            bg='#A4278D'
+        ).pack(pady=5)
+        
+        password_entry = tk.Entry(
+            login_window,
+            font=("Arial", 12),
+            width=25,
+            show="*"
+        )
+        password_entry.pack(pady=5)
+        
+        # Función para verificar login
+        def verify_login():
+            user_id = id_entry.get().strip()
+            password = password_entry.get().strip()
+            
+            if not user_id or not password:
+                messagebox.showerror("Error", "Por favor complete todos los campos")
+                return
+            
+            # Verificar credenciales (simulación de base de datos)
+            if user_id in self.users_db and self.users_db[user_id]["password"] == password:
+                messagebox.showinfo("Éxito", f"Bienvenido, {self.users_db[user_id]['full_name']}!")
+                login_window.destroy()
+                self.show_main_screen(user_id)
+            else:
+                messagebox.showerror("Error", "Contraseña o usuario incorrecta")
+        
+        # Botón de login
+        login_btn = tk.Button(
+            login_window,
+            text="Iniciar Sesión",
+            font=("Arial", 12, "bold"),
+            bg="#A4278D",
+            fg="white",
+            command=verify_login,
+            cursor="hand2"
+        )
+        login_btn.pack(pady=20)
+        
+        # Enfocar en el campo de usuario
+        id_entry.focus()
+        
+        # Permitir login con Enter
+        login_window.bind('<Return>', lambda event: verify_login())
+    
+    def create_user(self):
+        # Crear ventana de registro
+        register_window = tk.Toplevel(self.root)
+        register_window.title("Crear Usuario")
+        register_window.geometry("400x350")
+        register_window.configure(bg='#A4278D')
+        register_window.resizable(False, False)
+        
+        # Centrar ventana
+        register_window.transient(self.root)
+        register_window.grab_set()
+        
+        # Título
+        title = tk.Label(
+            register_window,
+            text="Crear Nuevo Usuario",
+            font=("Arial", 16, "bold"),
+            fg="white",
+            bg='#A4278D'
+        )
+        title.pack(pady=20)
+        
+        # Campo Nombre Completo
+        tk.Label(
+            register_window,
+            text="Nombre Completo:",
+            font=("Arial", 12),
+            fg="white",
+            bg='#A4278D'
+        ).pack(pady=5)
+        
+        fullname_entry = tk.Entry(
+            register_window,
+            font=("Arial", 12),
+            width=30
+        )
+        fullname_entry.pack(pady=5)
+        
+        # Campo Nombre de Usuario
+        tk.Label(
+            register_window,
+            text="Nombre de Usuario:",
+            font=("Arial", 12),
+            fg="white",
+            bg='#A4278D'
+        ).pack(pady=5)
+        
+        username_entry = tk.Entry(
+            register_window,
+            font=("Arial", 12),
+            width=30
+        )
+        username_entry.pack(pady=5)
+        
+        # Campo Contraseña
+        tk.Label(
+            register_window,
+            text="Contraseña:",
+            font=("Arial", 12),
+            fg="white",
+            bg='#A4278D'
+        ).pack(pady=5)
+        
+        password_entry = tk.Entry(
+            register_window,
+            font=("Arial", 12),
+            width=30,
+            show="*"
+        )
+        password_entry.pack(pady=5)
+        
+        # Función para crear usuario
+        def create_new_user():
+            full_name = fullname_entry.get().strip()
+            username = username_entry.get().strip()
+            password = password_entry.get().strip()
+            
+            if not full_name or not username or not password:
+                messagebox.showerror("Error", "Por favor complete todos los campos")
+                return
+            
+            if username in self.users_db:
+                messagebox.showerror("Error", "El nombre de usuario ya existe")
+                return
+            
+            # Agregar usuario a la "base de datos" temporal
+            self.users_db[username] = {
+                "password": password,
+                "full_name": full_name
+            }
+            
+            # TODO: Implementar conexión con base de datos MySQL en XAMPP
+            # save_user_to_database(full_name, username, password)
+            
+            messagebox.showinfo("Éxito", "Usuario creado exitosamente")
+            register_window.destroy()
+        
+        # Botón de registro
+        register_btn = tk.Button(
+            register_window,
+            text="Crear Usuario",
+            font=("Arial", 12, "bold"),
+            bg="#A4278D",
+            fg="white",
+            command=create_new_user,
+            cursor="hand2"
+        )
+        register_btn.pack(pady=20)
+        
+        # Enfocar en el primer campo
+        fullname_entry.focus()
+    
+    def show_main_screen(self, user_id):
+        self.clear_screen()
+        
+        # Título
+        title_label = tk.Label(
+            self.root, 
+            text="PANTALLA PRINCIPAL", 
+            font=("Arial", 20, "bold"),
+            fg="white",
+            bg='#A4278D'
+        )
+        title_label.pack(pady=40)
+        
+        # Mensaje de bienvenida
+        welcome_label = tk.Label(
+            self.root, 
+            text=f"Bienvenido, {self.users_db[user_id]['full_name']}", 
+            font=("Arial", 14),
+            fg="#bdc3c7",
+            bg='#A4278D'
+        )
+        welcome_label.pack(pady=20)
+        
+        # Placeholder para contenido futuro
+        content_label = tk.Label(
+            self.root, 
+            text="Esta pantalla está vacía por el momento.\nAquí irán las funcionalidades del gimnasio.", 
+            font=("Arial", 12),
+            fg="#95a5a6",
+            bg='#A4278D',
+            justify=tk.CENTER
+        )
+        content_label.pack(pady=50)
+        
+        # Botón para regresar al login
+        back_btn = tk.Button(
+            self.root,
+            text="Cerrar Sesión",
+            font=("Arial", 12, "bold"),
+            bg="#A4278D",
+            fg="white",
+            width=15,
+            height=2,
+            command=self.show_login_screen,
+            cursor="hand2"
+        )
+        back_btn.pack(pady=20)
+    
+    def close_program(self):
+        result = messagebox.askyesno("Confirmar", "¿Estás seguro de que quieres cerrar el programa?")
+        if result:
+            messagebox.showinfo("Despedida", "Esperamos volver a verte pronto")
+            self.root.quit()
+            sys.exit()
+    
+    def run(self):
+        self.root.mainloop()
+
+# Función comentada para futura implementación con XAMPP/MySQL
+"""
+def save_user_to_database(full_name, username, password):
+    # Conexión a MySQL (XAMPP)
+    import mysql.connector
+    
+    try:
+        connection = mysql.connector.connect(
+            host='localhost',
+            database='Planet Fitness',
+            user='root',
+            password=''  # Contraseña por defecto de XAMPP
+        )
+        
+        cursor = connection.cursor()
+        
+        # Insertar nuevo usuario
+        insert_query = '''
+        INSERT INTO users (full_name, username, password, created_at) 
+        VALUES (%s, %s, %s, NOW())
+        '''
+        
+        cursor.execute(insert_query, (full_name, username, password))
+        connection.commit()
+        
+        cursor.close()
+        connection.close()
+        
+        return True
+        
+    except mysql.connector.Error as error:
+        print(f"Error al conectar con MySQL: {error}")
+        return False
+
+def verify_user_credentials(username, password):
+    # Verificar credenciales en MySQL
+    import mysql.connector
+    
+    try:
+        connection = mysql.connector.connect(
+            host='localhost',
+            database='Planet Fitness',
+            user='root',
+            password=''
+        )
+        
+        cursor = connection.cursor()
+        
+        query = "SELECT full_name FROM users WHERE username = %s AND password = %s"
+        cursor.execute(query, (username, password))
+        
+        result = cursor.fetchone()
+        
+        cursor.close()
+        connection.close()
+        
+        return result[0] if result else None
+        
+    except mysql.connector.Error as error:
+        print(f"Error al verificar credenciales: {error}")
+        return None
+
+# SQL para crear la tabla de usuarios en MySQL:
+'''
+CREATE DATABASE gym_app;
+USE gym_app;
+
+CREATE TABLE users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    full_name VARCHAR(255) NOT NULL,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+'''
+"""
+
+if __name__ == "__main__":
+    app = GymApp()
+    app.run()
